@@ -312,6 +312,11 @@ def get_args():
     parser.add_argument("--embed_scale", type=float, default=1.0, help="embed scale")
     parser.add_argument("--pretrained_model_name", type=str, default=None, help="whether to use the pretrained model init parameters")
 
+
+    # START Arguments added for continune pretrainning by Yuan-Fei Pan.
+    parser.add_argument("--log_filepath", default=None, type=str, help="the pretrainning log file path.")
+    # END
+
     args = parser.parse_args()
     return args
 
@@ -777,7 +782,7 @@ def get_model(args):
                 new_state_dict[name] = v
             print("diff:")
             print(model_state_dict_keys.difference(new_state_dict.keys()))
-            model.load_state_dict(new_state_dict)
+            model.load_state_dict(new_state_dict, strict = False)
     else:
         # create model
         model = model_class(model_config, args)
@@ -1026,6 +1031,22 @@ def main():
 
     # check args
     check_args(args)
+
+    # overriding current arguments
+    if args.log_filepath:
+        with open(args.log_filepath, "r") as rfp:
+            for line_idx, line in enumerate(rfp):
+                if line_idx == 0:
+                    try:
+                        args_info = json.loads(line.strip(), encoding="UTF-8")
+                    except Exception as e:
+                        args_info = json.loads(line.strip())
+                    break
+        for key, val in args_info.items():
+            # do not override the following arguments:
+            if key not in ["dev_data_dir", "test_data_dir", "train_data_dir", "log_dir",
+                           "n_gpu", "output_dir", "tb_log_dir", "pretrain_task_level_name", "pretrain_task_level_type", "pretrain_tasks", "output_keys", "output_mode", "model_dirpath", "local_rank"]:
+                setattr(args, key, val)
 
     # create log dir
     log_fp = create_logger(args)
